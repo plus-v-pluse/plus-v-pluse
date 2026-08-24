@@ -399,13 +399,12 @@ nav {
 }
 
 .video-wrapper {
-    position: relative;
     width: 100%;
-    max-width: 1000px;
+    max-width: 1200px;
     margin: 0 auto;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 10px 50px rgba(0,0,0,0.5);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 28px;
 }
 
 .video-placeholder {
@@ -422,8 +421,12 @@ nav {
 
 video {
     width: 100%;
-    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
     display: block;
+    border-radius: 12px;
+    background: #111;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 
 /* ========================================
@@ -579,6 +582,11 @@ footer p {
 }
 
 @media (max-width: 768px) {
+    .video-wrapper {
+        grid-template-columns: 1fr;
+        gap: 22px;
+    }
+
     .mobile-menu-btn {
         display: flex;
     }
