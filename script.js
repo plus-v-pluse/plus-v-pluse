@@ -1,124 +1,233 @@
-// ========================================
-// MOBILE MENU
-// ========================================
+(() => {
+  'use strict';
 
-function toggleMenu() {
-    const navLinks = document.getElementById('navLinks');
-    navLinks.classList.toggle('active');
-}
+  const menuButton = document.querySelector('.menu-toggle');
+  const navigation = document.querySelector('#heroNav');
+  const siteHeader = document.querySelector('#siteHeader');
 
-function closeMenu() {
-    const navLinks = document.getElementById('navLinks');
-    navLinks.classList.remove('active');
-}
+  const syncHeaderState = () => {
+    siteHeader?.classList.toggle('is-scrolled', window.scrollY > 24);
+  };
 
-// Close mobile menu on outside click
-document.addEventListener('click', function(event) {
-    const navLinks = document.getElementById('navLinks');
-    const menuBtn = document.querySelector('.mobile-menu-btn');
-    const isClickInsideNav = navLinks.contains(event.target);
-    const isClickOnMenuBtn = menuBtn && menuBtn.contains(event.target);
-    
-    if (!isClickInsideNav && !isClickOnMenuBtn && navLinks.classList.contains('active')) {
-        navLinks.classList.remove('active');
-    }
-});
+  syncHeaderState();
+  window.addEventListener('scroll', syncHeaderState, { passive: true });
 
-// ========================================
-// WHATSAPP FORM SUBMISSION
-// ========================================
+  const closeMenu = () => {
+    if (!menuButton || !navigation) return;
+    navigation.classList.remove('is-open');
+    menuButton.setAttribute('aria-expanded', 'false');
+  };
 
-function sendToWhatsApp(event) {
+  menuButton?.addEventListener('click', () => {
+    const isOpen = navigation.classList.toggle('is-open');
+    menuButton.setAttribute('aria-expanded', String(isOpen));
+  });
+
+  navigation?.querySelectorAll('a').forEach((link) => link.addEventListener('click', closeMenu));
+  document.addEventListener('click', (event) => {
+    if (navigation?.classList.contains('is-open') && !navigation.contains(event.target) && !menuButton.contains(event.target)) closeMenu();
+  });
+
+  const navLinks = [...(navigation?.querySelectorAll('a[href^="#"]') || [])];
+  const navSections = navLinks
+    .map((link) => document.querySelector(link.getAttribute('href')))
+    .filter(Boolean);
+
+  if ('IntersectionObserver' in window && navSections.length) {
+    const sectionObserver = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      navLinks.forEach((link) => {
+        const active = link.getAttribute('href') === `#${visible.target.id}`;
+        link.classList.toggle('is-active', active);
+        if (active) link.setAttribute('aria-current', 'location');
+        else link.removeAttribute('aria-current');
+      });
+    }, { rootMargin: '-30% 0px -55%', threshold: [0, .15, .4] });
+
+    navSections.forEach((section) => sectionObserver.observe(section));
+  }
+
+  const player = document.querySelector("[data-player]");
+  const video = document.querySelector('#workVideo');
+  const largePlay = document.querySelector('.video-play');
+  const controlPlay = document.querySelector('.control-play');
+  const playPath = document.querySelector('.play-path');
+  const muteButton = document.querySelector('.control-mute');
+  const soundWaves = document.querySelector('.sound-waves');
+  const progress = document.querySelector('#videoProgress');
+  const currentTime = document.querySelector('#currentTime');
+  const duration = document.querySelector('#duration');
+  const description = document.querySelector('#videoDescription');
+  const choices = [...document.querySelectorAll('.video-choice')];
+
+  const formatTime = (value) => {
+    if (!Number.isFinite(value)) return '0:00';
+    const minutes = Math.floor(value / 60);
+    const seconds = Math.floor(value % 60).toString().padStart(2, '0');
+    return `${minutes}:${seconds}`;
+  };
+
+  const syncPlayState = () => {
+    if (!video || !player || !playPath) return;
+    const playing = !video.paused && !video.ended;
+    player.classList.toggle('is-playing', playing);
+    playPath.setAttribute('d', playing ? 'M7 5h4v14H7Zm7 0h4v14h-4Z' : 'm8 5 11 7-11 7Z');
+    controlPlay?.setAttribute('aria-label', playing ? 'Поставить на паузу' : 'Воспроизвести');
+    largePlay?.setAttribute('aria-label', playing ? 'Поставить на паузу' : 'Воспроизвести видео');
+  };
+
+  const togglePlayback = () => {
+    if (!video) return;
+    if (video.paused) video.play().catch(() => {});
+    else video.pause();
+  };
+
+  largePlay?.addEventListener('click', togglePlayback);
+  controlPlay?.addEventListener('click', togglePlayback);
+  video?.addEventListener('click', togglePlayback);
+  video?.addEventListener('play', syncPlayState);
+  video?.addEventListener('pause', syncPlayState);
+  video?.addEventListener('ended', syncPlayState);
+  video?.addEventListener('loadedmetadata', () => {
+    if (duration) duration.textContent = formatTime(video.duration);
+  });
+  video?.addEventListener('timeupdate', () => {
+    if (currentTime) currentTime.textContent = formatTime(video.currentTime);
+    if (progress && video.duration) progress.value = String((video.currentTime / video.duration) * 100);
+  });
+
+  progress?.addEventListener('input', () => {
+    if (video?.duration) video.currentTime = (Number(progress.value) / 100) * video.duration;
+  });
+
+  muteButton?.addEventListener('click', () => {
+    if (!video) return;
+    video.muted = !video.muted;
+    muteButton.setAttribute('aria-label', video.muted ? 'Включить звук' : 'Выключить звук');
+    if (soundWaves) soundWaves.style.display = video.muted ? 'none' : '';
+  });
+
+  choices.forEach((choice) => {
+    choice.addEventListener('click', () => {
+      if (!video || choice.classList.contains('is-active')) return;
+      choices.forEach((item) => {
+        item.classList.remove('is-active');
+        item.setAttribute('aria-pressed', 'false');
+      });
+      choice.classList.add('is-active');
+      choice.setAttribute('aria-pressed', 'true');
+      video.pause();
+      video.poster = choice.dataset.poster;
+      const supportsWebM = video.canPlayType('video/webm; codecs="vp9, opus"') !== '';
+      video.src = supportsWebM ? choice.dataset.webm : choice.dataset.src;
+      video.load();
+      if (description) description.textContent = choice.dataset.description;
+      video.play().catch(() => {});
+    });
+  });
+
+  const form = document.querySelector('#contactForm');
+  const formStatus = document.querySelector('#formStatus');
+  form?.addEventListener('submit', (event) => {
     event.preventDefault();
-    
-    const name = document.getElementById('userName').value;
-    const phone = document.getElementById('userPhone').value;
-    const message = document.getElementById('userMessage').value;
-    const managerIndex = document.getElementById('managerSelect').value;
-    
-    const whatsappNumbers = [
-        '77781120300',
-        '77055573390',
-        '77053328812'
-    ];
-    
-    const selectedNumber = whatsappNumbers[managerIndex];
-    
-    const whatsappMessage = `*Новая заявка с сайта*%0A%0A` +
-                           ` Имя: ${encodeURIComponent(name)}%0A` +
-                           ` Телефон: ${encodeURIComponent(phone)}%0A` +
-                           ` Сообщение:%0A${encodeURIComponent(message)}`;
-    
-    const whatsappURL = `https://wa.me/${selectedNumber}?text=${whatsappMessage}`;
-    window.open(whatsappURL, '_blank');
-    
-    document.getElementById('contactForm').reset();
-    alert('Спасибо! Сейчас откроется WhatsApp с вашим сообщением.');
-}
-
-// ========================================
-// SMOOTH SCROLL
-// ========================================
-
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            const headerOffset = 80;
-            const elementPosition = target.offsetTop;
-            const offsetPosition = elementPosition - headerOffset;
-
-            window.scrollTo({
-                top: offsetPosition,
-                behavior: 'smooth'
-            });
-        }
-    });
-});
-
-// ========================================
-// HEADER SCROLL EFFECT
-// ========================================
-
-let lastScroll = 0;
-window.addEventListener('scroll', () => {
-    const header = document.querySelector('header');
-    const currentScroll = window.pageYOffset;
-
-    if (currentScroll > 100) {
-        header.style.padding = '10px 40px';
-    } else {
-        header.style.padding = '20px 40px';
+    formStatus.classList.remove('is-error');
+    if (!form.checkValidity()) {
+      formStatus.textContent = 'Заполните имя, телефон и описание задачи.';
+      formStatus.classList.add('is-error');
+      form.reportValidity();
+      return;
     }
+    const name = document.querySelector('#userName').value.trim();
+    const phone = document.querySelector('#userPhone').value.trim();
+    const message = document.querySelector('#userMessage').value.trim();
+    const manager = document.querySelector('#managerSelect').value;
+    const text = `Новая заявка с сайта\n\nИмя: ${name}\nТелефон: ${phone}\nЗадача: ${message}`;
+    formStatus.textContent = 'Сообщение подготовлено — открываем WhatsApp.';
+    window.open(`https://wa.me/${manager}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+  });
 
-    lastScroll = currentScroll;
-});
+  if (window.gsap && window.ScrollTrigger) {
+    gsap.registerPlugin(ScrollTrigger);
+    const motion = gsap.matchMedia();
 
-// ========================================
-// INTERSECTION OBSERVER FOR ANIMATIONS
-// ========================================
+    motion.add('(prefers-reduced-motion: no-preference)', () => {
 
-const observerOptions = {
-    threshold: 0.1,
-    rootMargin: '0px 0px -50px 0px'
-};
+      gsap.to('.hero-media', {
+        yPercent: -3,
+        ease: 'none',
+        scrollTrigger: { trigger: '.hero-dossier', start: 'top top', end: 'bottom top', scrub: .6 }
+      });
 
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            entry.target.style.opacity = '1';
-            entry.target.style.transform = 'translateY(0)';
-        }
+      document.querySelectorAll('.reveal-copy').forEach((element) => {
+        gsap.from(element, {
+          y: 42,
+          opacity: 0,
+          duration: .9,
+          ease: 'expo.out',
+          scrollTrigger: { trigger: element, start: 'top 82%', once: true }
+        });
+      });
+
+      document.querySelectorAll('.reveal-media').forEach((element) => {
+        gsap.from(element, {
+          clipPath: 'inset(0 0 100% 0)',
+          duration: 1.1,
+          ease: 'expo.out',
+          scrollTrigger: { trigger: element, start: 'top 82%', once: true }
+        });
+      });
+
+      document.querySelectorAll('.reveal-row:not(.equipment-row)').forEach((element, index) => {
+        gsap.from(element, {
+          xPercent: index % 2 ? 5 : -5,
+          opacity: 0,
+          duration: .85,
+          ease: 'expo.out',
+          scrollTrigger: { trigger: element, start: 'top 84%', once: true }
+        });
+      });
+
+      const equipmentRows = gsap.utils.toArray('.equipment-row');
+      if (equipmentRows.length) {
+        gsap.from(equipmentRows, {
+          y: 30,
+          scale: .985,
+          opacity: 0,
+          duration: .7,
+          stagger: .09,
+          ease: 'power3.out',
+          scrollTrigger: {
+            trigger: '.equipment-list',
+            start: 'top 82%',
+            once: true
+          }
+        });
+      }
+
+      document.querySelectorAll('.stat-number').forEach((element) => {
+        const target = Number(element.dataset.count);
+        const suffix = element.dataset.suffix || '';
+        const state = { value: 0 };
+        gsap.to(state, {
+          value: target,
+          duration: 1.8,
+          ease: 'power3.out',
+          snap: { value: 1 },
+          scrollTrigger: { trigger: element, start: 'top 84%', once: true },
+          onStart: () => { element.textContent = `0${suffix}`; },
+          onUpdate: () => { element.textContent = `${Math.round(state.value)}${suffix}`; },
+          onComplete: () => { element.textContent = `${target}${suffix}`; }
+        });
+      });
+
+      return () => {
+        ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+      };
     });
-}, observerOptions);
 
-// Apply animation to elements when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.service-card, .equipment-item, .stat-item').forEach(el => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(30px)';
-        el.style.transition = 'all 0.6s ease-out';
-        observer.observe(el);
-    });
-});
+    window.addEventListener('load', () => ScrollTrigger.refresh(), { once: true });
+  }
+})();
